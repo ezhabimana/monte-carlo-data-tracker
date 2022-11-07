@@ -2,16 +2,17 @@ import urllib.request, json
 from db_utils import  update_price
 from models import  PriceHistory
 from datetime import datetime
+import os 
 
 # narrowing down to specific markets
-supported_exchanges = [ 'binance-us' ]
+supported_exchanges = os.environ.get("SUPPORTED_EXCHANGES").split(',')
 
 def update_price_history(db):
     '''Updates currency pair prices'''
     has_more = True
     last_cursor = None
     while(has_more):
-        url = f'https://api.cryptowat.ch/markets/prices?api_key=W8DKTQYARYQMLNFYUGZK'
+        url = f'{os.environ.get("API_BASE_URL")}/markets/prices?api_key={os.environ.get("API_KEY")}'
         if(last_cursor):
             url = f'{url}&cursor={last_cursor}'
 

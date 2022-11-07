@@ -7,6 +7,7 @@ from models import Currency, CurrencyPair, PriceHistory
 from datetime import datetime, timedelta
 from flask_apscheduler import APScheduler
 from jobs import update_price_history
+import statistics
 
 app = Flask(__name__)
 
@@ -92,12 +93,22 @@ def get_symbol_prices(exchange,symbol):
 
     prices_query = db.session.query(PriceHistory)\
         .filter(*filters)\
-        .order_by(PriceHistory.updated_at.desc())
+        .order_by(PriceHistory.updated_at)
     if prices_query.count() == 0 :
         return make_response('', 404)
 
-    prices = []
+    history_records = []
     for price in prices_query:
         del price.__dict__['_sa_instance_state']
-        prices.append(price.__dict__)
-    return jsonify(prices)
+        history_records.append(price.__dict__)
+    return jsonify({"stdv": get_standard_deviation(history_records), "prices":history_records})
+
+def get_standard_deviation(history_records):
+    '''https://www.forex.com/en/market-analysis/latest-research/what-is-deviation-in-forex/'''
+   
+    if len(history_records) < 2:
+        '''Variance requires at least 2 data points'''
+        return None
+    
+    prices = map(lambda x : x['price'], history_records)
+    return statistics.stdev(prices)

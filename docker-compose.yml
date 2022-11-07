@@ -1,9 +1,9 @@
 version: '3.9'
 
 services:
-  pythonapp:
-    container_name: pythonapp
-    image: pythonapp
+  datatracker:
+    container_name: datatracker
+    image: datatracker
     build: .
     ports:
       - "80:80"
@@ -11,6 +11,8 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
     depends_on:
       - db
+    env_file:
+      - .env
   
   db:
     container_name: db

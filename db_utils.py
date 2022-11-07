@@ -1,5 +1,5 @@
 
-from models import Currency, CurrencyPair, PriceHistory
+from models import Currency, CurrencyPair
 
 def insert_currency(db, currency):
     ''' Insert a currency if not exists. Do nothing otherwise '''
