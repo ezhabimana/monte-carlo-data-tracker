@@ -4,7 +4,7 @@ import urllib.request, json
 from database import db
 from db_utils import insert_currency, insert_currency_pair, update_price
 from models import Currency, CurrencyPair, PriceHistory
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask_apscheduler import APScheduler
 from jobs import update_price_history
 
@@ -82,9 +82,17 @@ def get_prices():
     currencies.append(currency.__dict__)
   return jsonify(currencies)
 
-@app.route('/prices/exchange/<exchange>/symbol/<symbol>', methods=['GET'])
+@app.route('/prices/<exchange>/<symbol>', methods=['GET'])
 def get_symbol_prices(exchange,symbol):
-    prices_query = db.session.query(PriceHistory).filter_by(exchange=exchange,symbol=symbol)
+    filters = (
+        PriceHistory.exchange == exchange,
+        PriceHistory.symbol == symbol,
+        PriceHistory.updated_at > (datetime.now() - timedelta(hours=24)),
+    )
+
+    prices_query = db.session.query(PriceHistory)\
+        .filter(*filters)\
+        .order_by(PriceHistory.updated_at.desc())
     if prices_query.count() == 0 :
         return make_response('', 404)
 

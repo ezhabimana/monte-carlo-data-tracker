@@ -8,9 +8,9 @@ supported_exchanges = [ 'binance-us' ]
 
 def update_price_history(db):
     '''Updates currency pair prices'''
-    hasMore = True
+    has_more = True
     last_cursor = None
-    while(hasMore):
+    while(has_more):
         url = f'https://api.cryptowat.ch/markets/prices?api_key=W8DKTQYARYQMLNFYUGZK'
         if(last_cursor):
             url = f'{url}&cursor={last_cursor}'
@@ -29,8 +29,7 @@ def update_price_history(db):
                 update_price(db, history_item)
 
         cursor = response['cursor']
-        hasMore = cursor["hasMore"]
-        last_cursor = cursor["last"]
+        has_more = cursor['hasMore']
+        last_cursor = cursor['last']
 
-        print(f'Last cursor is {last_cursor}', flush="True")
         print(f'Completed updating prices at { str(datetime.now())}', flush="True")
