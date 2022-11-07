@@ -10,6 +10,10 @@
 
 # Execute integration tests
 
+# TODOs
+- Utility for Get ALL
+- Batch inserts instead of one by one
+
 # Dependencies
 - flask: Python framework
 - psycopg2-binary: To Create Postgres Database connection

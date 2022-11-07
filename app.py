@@ -2,8 +2,9 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 import os
 import urllib.request, json
-from db_utils import insert_currency
-from db_utils import db, Currency, CurrencyPair, PriceHistory
+from database import db
+from db_utils import insert_currency, insert_currency_pair
+from models import Currency, CurrencyPair, PriceHistory
 
 app = Flask(__name__)
 
@@ -30,20 +31,31 @@ def get_pair(symbol):
   del pair.__dict__['_sa_instance_state']
   return jsonify(pair.__dict__)
 
-@app.route('/currencies/pairs', methods=['POST'])
+@app.route('/currencies/pairs', methods=['GET'])
+def get_pairs():
+  pairs = []
+  for pair in db.session.query(CurrencyPair).all():
+    del pair.__dict__['_sa_instance_state']
+    pairs.append(pair.__dict__)
+  return jsonify(pairs)
+
+@app.route('/currencies/initialize', methods=['POST'])
 def insert_pairs():
     '''Insert a list of available currency pairs'''
     #url = "https://api.cryptowat.ch/pairs?api_key={}".format(os.environ.get("TMDB_API_KEY"))
-    url = "https://api.cryptowat.ch/pairs?api_key=W8DKTQYARYQMLNFYUGZK"
+    url = "https://api.cryptowat.ch/pairs?api_key=W8DKTQYARYQMLNFYUGZK&limit=1"
 
     response = json.loads(urllib.request.urlopen(url).read())
     pairs = response["result"]
     for pair in pairs:
         base = pair["base"]
-        insert_currency(db, Currency(base["symbol"], base["name"]))
+        base_currency = insert_currency(db, Currency(base["symbol"], base["name"]))
 
         quote = pair["quote"]
-        insert_currency(db, Currency(quote["symbol"], quote["name"]))
+        quote_currency = insert_currency(db, Currency(quote["symbol"], quote["name"]))
+
+        currencyPair = CurrencyPair(pair["symbol"], base_currency.id, quote_currency.id)
+        insert_currency_pair(db, currencyPair)
 
     # dict = json.loads(pairs)
 
