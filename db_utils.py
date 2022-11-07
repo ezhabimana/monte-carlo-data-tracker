@@ -1,5 +1,5 @@
 
-from models import Currency, CurrencyPair
+from models import Currency, CurrencyPair, PriceHistory
 
 def insert_currency(db, currency):
     ''' Insert a currency if not exists. Do nothing otherwise '''
@@ -22,3 +22,9 @@ def insert_currency_pair(db, currencyPair):
         return currencyPair
 
     return matchingCurrencyPair
+
+def update_price(db, history_item):
+    ''' Insert a new price history record '''
+    db.session.add(history_item)
+    db.session.commit()
+    return history_item

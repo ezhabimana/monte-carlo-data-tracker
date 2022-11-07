@@ -1,12 +1,24 @@
-from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, request, jsonify, make_response
 import os
 import urllib.request, json
 from database import db
-from db_utils import insert_currency, insert_currency_pair
+from db_utils import insert_currency, insert_currency_pair, update_price
 from models import Currency, CurrencyPair, PriceHistory
+from datetime import datetime
+from flask_apscheduler import APScheduler
+from jobs import update_price_history
 
 app = Flask(__name__)
+
+def run_price_history_job():
+    '''Updates currency pair prices'''
+    with app.app_context():
+        update_price_history(db)
+
+scheduler = APScheduler()
+scheduler.init_app(app)
+scheduler.start()
+scheduler.add_job(id='price-history-job', func=run_price_history_job,  trigger='interval', minutes=1)
 
 if __name__ == '__main__':
     app.run(debug=True)
@@ -27,7 +39,10 @@ def get_currencies():
 
 @app.route('/currencies/pairs/<symbol>', methods=['GET'])
 def get_pair(symbol):
-  pair = db.session.query(CurrencyPair).filter_by(symbol=symbol)
+  pair = db.session.query(CurrencyPair).filter_by(symbol=symbol).first()
+  if pair is None:
+    return make_response(jsonify('Symbol not found'), 404)
+
   del pair.__dict__['_sa_instance_state']
   return jsonify(pair.__dict__)
 
@@ -39,7 +54,7 @@ def get_pairs():
     pairs.append(pair.__dict__)
   return jsonify(pairs)
 
-@app.route('/currencies/initialize', methods=['POST'])
+@app.route('/currencies', methods=['POST'])
 def insert_pairs():
     '''Insert a list of available currency pairs'''
     #url = "https://api.cryptowat.ch/pairs?api_key={}".format(os.environ.get("TMDB_API_KEY"))
@@ -57,53 +72,24 @@ def insert_pairs():
         currencyPair = CurrencyPair(pair["symbol"], base_currency.id, quote_currency.id)
         insert_currency_pair(db, currencyPair)
 
-    # dict = json.loads(pairs)
-
-    # movies = []
-
-    # for movie in dict["result"]:
-    #     movie = {
-    #         "title": movie["title"],
-    #         "overview": movie["overview"],
-    #     }
-        
-    #     movies.append(movie)
-
-    # return {"results": movies}
     return jsonify(response)
 
-# @app.route('/items/<id>', methods=['GET'])
-# def get_item(id):
-#   item = Item.query.get(id)
-#   del item.__dict__['_sa_instance_state']
-#   return jsonify(item.__dict__)
+@app.route('/prices', methods=['GET'])
+def get_prices():
+  currencies = []
+  for currency in db.session.query(PriceHistory).all():
+    del currency.__dict__['_sa_instance_state']
+    currencies.append(currency.__dict__)
+  return jsonify(currencies)
 
-# @app.route('/items', methods=['GET'])
-# def get_items():
-#   items = []
-#   for item in db.session.query(Item).all():
-#     del item.__dict__['_sa_instance_state']
-#     items.append(item.__dict__)
-#   return jsonify(items)
+@app.route('/prices/exchange/<exchange>/symbol/<symbol>', methods=['GET'])
+def get_symbol_prices(exchange,symbol):
+    prices_query = db.session.query(PriceHistory).filter_by(exchange=exchange,symbol=symbol)
+    if prices_query.count() == 0 :
+        return make_response('', 404)
 
-# @app.route('/items', methods=['POST'])
-# def create_item():
-#   body = request.get_json()
-#   db.session.add(Item(body['title'], body['content']))
-#   db.session.commit()
-#   return "item created"
-
-# @app.route('/items/<id>', methods=['PUT'])
-# def update_item(id):
-#   body = request.get_json()
-#   db.session.query(Item).filter_by(id=id).update(
-#     dict(title=body['title'], content=body['content']))
-#   db.session.commit()
-#   return "item updated"
-
-# @app.route('/items/<id>', methods=['DELETE'])
-# def delete_item(id):
-#   db.session.query(Item).filter_by(id=id).delete()
-#   db.session.commit()
-#   return "item deleted"
-
+    prices = []
+    for price in prices_query:
+        del price.__dict__['_sa_instance_state']
+        prices.append(price.__dict__)
+    return jsonify(prices)
