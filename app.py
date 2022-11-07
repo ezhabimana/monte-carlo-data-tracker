@@ -1,6 +1,9 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 import os
+import urllib.request, json
+from db_utils import insert_currency
+from db_utils import db, Currency, CurrencyPair, PriceHistory
 
 app = Flask(__name__)
 
@@ -8,52 +11,10 @@ if __name__ == '__main__':
     app.run(debug=True)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
-db = SQLAlchemy(app)
+db.init_app(app)
 
-# class Item(db.Model):
-#   id = db.Column(db.Integer, primary_key=True)
-#   title = db.Column(db.String(80), unique=True, nullable=False)
-#   content = db.Column(db.String(120), unique=True, nullable=False)
-
-#   def __init__(self, title, content):
-#     self.title = title
-#     self.content = content
-
-class Currency(db.Model):
-  id = db.Column(db.Integer, primary_key=True)
-  symbol = db.Column(db.String(10), unique=True, nullable=False)
-  name = db.Column(db.String(100), unique=True, nullable=False)
-
-  def __init__(self, symbol, name):
-    self.symbol = symbol
-    self.name = name
-
-
-class CurrencyPair(db.Model):
-  id = db.Column(db.Integer, primary_key=True)
-  symbol = db.Column(db.String(10), unique=True, nullable=False)
-  base_currency_id = db.Column(db.Integer, nullable=False)
-  quote_currency_id = db.Column(db.Integer, nullable=False)
-
-  def __init__(self, symbol, base_currency_id, quote_currency_id):
-    self.symbol = symbol
-    self.base_currency_id = base_currency_id
-    self.quote_currency_id = quote_currency_id
-
-class PriceHistory(db.Model):
-  id = db.Column(db.Integer, primary_key=True)
-  symbol = db.Column(db.String(10), unique=True, nullable=False)
-  currency_pair_id = db.Column(db.Integer, nullable=False)
-  price = db.Column(db.Float, nullable=True)
-  updated_at = db.Column(db.DateTime, nullable=True)
-
-  def __init__(self, symbol, currency_pair_id, price, updated_at):
-    self.symbol = symbol
-    self.currency_pair_id = currency_pair_id
-    self.price = price
-    self.updated_at = updated_at
-
-db.create_all()
+with app.app_context():
+    db.create_all()
 
 @app.route('/currencies', methods=['GET'])
 def get_currencies():
@@ -68,6 +29,36 @@ def get_pair(symbol):
   pair = db.session.query(CurrencyPair).filter_by(symbol=symbol)
   del pair.__dict__['_sa_instance_state']
   return jsonify(pair.__dict__)
+
+@app.route('/currencies/pairs', methods=['POST'])
+def insert_pairs():
+    '''Insert a list of available currency pairs'''
+    #url = "https://api.cryptowat.ch/pairs?api_key={}".format(os.environ.get("TMDB_API_KEY"))
+    url = "https://api.cryptowat.ch/pairs?api_key=W8DKTQYARYQMLNFYUGZK"
+
+    response = json.loads(urllib.request.urlopen(url).read())
+    pairs = response["result"]
+    for pair in pairs:
+        base = pair["base"]
+        insert_currency(db, Currency(base["symbol"], base["name"]))
+
+        quote = pair["quote"]
+        insert_currency(db, Currency(quote["symbol"], quote["name"]))
+
+    # dict = json.loads(pairs)
+
+    # movies = []
+
+    # for movie in dict["result"]:
+    #     movie = {
+    #         "title": movie["title"],
+    #         "overview": movie["overview"],
+    #     }
+        
+    #     movies.append(movie)
+
+    # return {"results": movies}
+    return jsonify(response)
 
 # @app.route('/items/<id>', methods=['GET'])
 # def get_item(id):
@@ -103,3 +94,4 @@ def get_pair(symbol):
 #   db.session.query(Item).filter_by(id=id).delete()
 #   db.session.commit()
 #   return "item deleted"
+
