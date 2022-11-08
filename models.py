@@ -1,26 +1,5 @@
 from database import db
 
-class Currency(db.Model):
-  id = db.Column(db.Integer, primary_key=True)
-  symbol = db.Column(db.String(100), unique=True, nullable=False)
-  # Name is not unique for example British Pound has gbp and 6b
-  name = db.Column(db.String(100), unique=False, nullable=False)
-
-  def __init__(self, symbol, name):
-    self.symbol = symbol
-    self.name = name
-
-class CurrencyPair(db.Model):
-  id = db.Column(db.Integer, primary_key=True)
-  symbol = db.Column(db.String(100), unique=True, nullable=False)
-  base_currency_id = db.Column(db.Integer, nullable=False)
-  quote_currency_id = db.Column(db.Integer, nullable=False)
-
-  def __init__(self, symbol, base_currency_id, quote_currency_id):
-    self.symbol = symbol
-    self.base_currency_id = base_currency_id
-    self.quote_currency_id = quote_currency_id
-
 class PriceHistory(db.Model):
   id = db.Column(db.Integer, primary_key=True)
   symbol = db.Column(db.String(100), nullable=False)
@@ -33,3 +12,9 @@ class PriceHistory(db.Model):
     self.exchange =  exchange
     self.price = price
     self.updated_at = updated_at
+
+def update_price(db, history_item):
+    ''' Insert a new price history record '''
+    db.session.add(history_item)
+    db.session.commit()
+    return history_item

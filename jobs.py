@@ -1,6 +1,5 @@
 import urllib.request, json
-from db_utils import  update_price
-from models import  PriceHistory
+from models import  PriceHistory, update_price
 from datetime import datetime
 import os 
 

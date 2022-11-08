@@ -196,18 +196,16 @@ GET http://localhost:80/prices/binance-us/1inchusd
 via 
 `GET http://localhost:80/prices/<exchange>/<symbol>` endpoint
 
-## Execute unit tests
-
-## Execute integration tests
-
 ## Technical Details
 - A background job that is scheduled for every minute pulls data from https://api.cryptowat.ch/markets/prices and only stores the info associated with  configured currency markets in `SUPPORTED_EXCHANGES`. This process uses the cursor to go through all the results
 - `GET http://localhost:80/prices/<exchange>/<symbol>` endpoint exposes the historical currency price for the last 24 hours in a chronological order. It also surfaces the standard deviation of the price.
 
  ![Architecture Diagram](initial-architecture.svg)
 
-# Missing requirements
+## Missing requirements
+- Metrics other than last price such as open price, close price, volume
 - Ranking currency pairs
+- Unit tests
 
 ## Major issues
 -  `update_price_history` function fetches for latest price updates and inserts them into the DB one by one. There are 23 markets (exchanges) without thousands of currency pairs which makes this design impracticable in production. Given that the job runs every minute, it's guaranteed that the second, third, etc instance will be kicked off before the first one completes
@@ -221,6 +219,14 @@ via
 
  ![Architecture Diagram](enhanced-architecture.svg)
 
+## Feature request
+```
+To help the user identify opportunities in real-time, the app will send an alert whenever a metric exceeds 3x the value of its average in the last 1 hour. For example, if the volume of GOLD/BTC averaged 100 in the last hour, the app would send an alert in case a new volume data point exceeds 300. Please write a short proposal on how you would implement this feature request.
+```
+- By following the architecture in the diagram above, we can add a table in DYnamo DB that contains notification threshold.
+- Then add a "Notification Service", that subscribes to Ranking Input topic. The service would look up into the Redis cache for data matching the specified interval, and find  applicable notification rules in DynamoDB, and create a notification
+- The users may have different notification delivery method, so we would neeed to dispatch those notifications into different queues per delivery method
+- Notification delivery processes would be pulling or subscribing to the queue to deliver notification content.
 
 # Dependencies
 - flask: Python framework

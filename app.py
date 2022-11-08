@@ -1,9 +1,7 @@
-from flask import Flask, request, jsonify, make_response
+from flask import Flask, jsonify, make_response
 import os
-import urllib.request, json
 from database import db
-from db_utils import insert_currency, insert_currency_pair, update_price
-from models import Currency, CurrencyPair, PriceHistory
+from models import  PriceHistory
 from datetime import datetime, timedelta
 from flask_apscheduler import APScheduler
 from jobs import update_price_history
@@ -30,61 +28,9 @@ db.init_app(app)
 with app.app_context():
     db.create_all()
 
-@app.route('/currencies', methods=['GET'])
-def get_currencies():
-  currencies = []
-  for currency in db.session.query(Currency).all():
-    del currency.__dict__['_sa_instance_state']
-    currencies.append(currency.__dict__)
-  return jsonify(currencies)
-
-@app.route('/currencies/pairs/<symbol>', methods=['GET'])
-def get_pair(symbol):
-  pair = db.session.query(CurrencyPair).filter_by(symbol=symbol).first()
-  if pair is None:
-    return make_response(jsonify('Symbol not found'), 404)
-
-  del pair.__dict__['_sa_instance_state']
-  return jsonify(pair.__dict__)
-
-@app.route('/currencies/pairs', methods=['GET'])
-def get_pairs():
-  pairs = []
-  for pair in db.session.query(CurrencyPair).all():
-    del pair.__dict__['_sa_instance_state']
-    pairs.append(pair.__dict__)
-  return jsonify(pairs)
-
-@app.route('/currencies', methods=['POST'])
-def insert_pairs():
-    '''Insert a list of available currency pairs'''
-    #url = "https://api.cryptowat.ch/pairs?api_key={}".format(os.environ.get("TMDB_API_KEY"))
-    url = "https://api.cryptowat.ch/pairs?api_key=W8DKTQYARYQMLNFYUGZK&limit=1"
-
-    response = json.loads(urllib.request.urlopen(url).read())
-    pairs = response["result"]
-    for pair in pairs:
-        base = pair["base"]
-        base_currency = insert_currency(db, Currency(base["symbol"], base["name"]))
-
-        quote = pair["quote"]
-        quote_currency = insert_currency(db, Currency(quote["symbol"], quote["name"]))
-
-        currencyPair = CurrencyPair(pair["symbol"], base_currency.id, quote_currency.id)
-        insert_currency_pair(db, currencyPair)
-
-    return jsonify(response)
-
-@app.route('/prices', methods=['GET'])
-def get_prices():
-  currencies = []
-  for currency in db.session.query(PriceHistory).all():
-    del currency.__dict__['_sa_instance_state']
-    currencies.append(currency.__dict__)
-  return jsonify(currencies)
-
 @app.route('/prices/<exchange>/<symbol>', methods=['GET'])
 def get_symbol_prices(exchange,symbol):
+    '''Returns the historical prices of a given symbol and the price standard deviation for the past 24 hours'''
     filters = (
         PriceHistory.exchange == exchange,
         PriceHistory.symbol == symbol,
