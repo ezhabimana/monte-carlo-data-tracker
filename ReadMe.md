@@ -1,5 +1,4 @@
-
-# DESCRIPTION & USAGE
+# DATA TRACKER
 This applicatiion utilizes [Cryptowatch API](https://docs.cryptowat.ch/rest-api/) to fetch currency pair prices on 1 minute intervals. The price historical data is then stored, and used to retrive the history of price changes in the last 24 hours along with the standard deviation for the same period of time. Crypowatch supports 23 markets, so to simplify the project supported markets have to be configured int the `.env` file
 The app runs on port 80, and the endpoint to view the currency pair's 24-hr history is `GET http://localhost:80/prices/<exchange>/<symbol>`
 
@@ -183,7 +182,7 @@ GET http://localhost:80/prices/binance-us/1inchusd
 
 ```
 
-# Running the app locally
+## Running the app locally
 - Install docker, the [desktop application] (https://www.docker.com/products/docker-desktop/) will install docker and provide a GUI to manage your containers
 - Get an API key from https://cryptowat.ch/account/api-access
 - Copy `.env.example` to `.env`
@@ -192,19 +191,36 @@ GET http://localhost:80/prices/binance-us/1inchusd
 
 - Run the database service locally with `docker compose up -d db`
 - Build and run the application locally with `docker compose up --build datatracker`
+- A job to update currency prices will start running every minute
+- After a couple of minute you can query the data for a given exchange market nd symbol
+via 
+`GET http://localhost:80/prices/<exchange>/<symbol>` endpoint
 
-# Execute unit tests
+## Execute unit tests
 
-# Execute integration tests
+## Execute integration tests
 
-# TODOs
-- Utility for Get ALL
-- Batch inserts instead of one by one
-- Use of generic for inserts
-- Handle exceptions
+## Technical Details
+- A background job that is scheduled for every minute pulls data from https://api.cryptowat.ch/markets/prices and only stores the info associated with  configured currency markets in `SUPPORTED_EXCHANGES`. This process uses the cursor to go through all the results
+- `GET http://localhost:80/prices/<exchange>/<symbol>` endpoint exposes the historical currency price for the last 24 hours in a chronological order. It also surfaces the standard deviation of the price.
 
-# Questions
-- Rank by market or 
+ ![Architecture Diagram](initial-architecture.svg)
+
+# Missing requirements
+- Ranking currency pairs
+
+## Major issues
+-  `update_price_history` function fetches for latest price updates and inserts them into the DB one by one. There are 23 markets (exchanges) without thousands of currency pairs which makes this design impracticable in production. Given that the job runs every minute, it's guaranteed that the second, third, etc instance will be kicked off before the first one completes
+
+- `price_history` database table is going to grow exponentially, and making the insertions even slower due to re-indexing and chekcing for constraints. API will definitely be lagging while filtering and ordering by date
+
+## Proposed Enhacements
+- Price updates: instead of pulling and inserting in the same function, we can separate the pull into its own process (Lambda) which then broadcast each update into a message topic to be picked up and processed by an instance of a separate process. Lambda would be a good candidate as they can scale up depending on the input.
+- Data store: Now that the update service is scaled up the relational DB will be a bottleneck. It makes sense to use store that can scale horizontally on-demand such as Dynamo DB
+- API performance: We can cache the most recent data into in-memory store like Redis to minimize latency when a user attempts to view the last 24-hr info
+
+ ![Architecture Diagram](enhanced-architecture.svg)
+
 
 # Dependencies
 - flask: Python framework
